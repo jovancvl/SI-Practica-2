@@ -1,0 +1,6 @@
+<title>Hello from Flask</title>
+
+{% for table in tables %}
+            {{titles[loop.index]}}
+            {{ table|safe }}
+{% endfor %}
