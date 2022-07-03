@@ -7,6 +7,11 @@ import plotly.utils
 from flask import Flask
 from flask import render_template
 import requests
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+import statsmodels
+from sklearn.naive_bayes import MultinomialNB
 
 app = Flask(__name__)
 pd.options.plotting.backend = "plotly"
@@ -170,9 +175,48 @@ def vulnerabilidades():
 def githubperfil(username):
     response = requests.get(f"https://api.github.com/users/{username}")
     response = response.json()
-
-    #print(response)
     return render_template('githubperfil.html', user=response)
+
+@app.route("/regresionlineal")
+def regresionlineal():
+    source = json.loads(open("users_IA_clases.json").read())
+    users_train = pd.DataFrame(source['usuarios'])
+    users_train = users_train.drop("usuario", 1)
+    users_train_x = users_train.drop("vulnerable", 1)
+    users_train_y = users_train.drop(["emails_phishing_recibidos", "emails_phishing_clicados"], 1)
+    #users_train = users_train.values
+    #print(users_train_x)
+    #print(users_train_y)
+    source = json.loads(open("users_IA_predecir.json").read())
+    users_test = pd.DataFrame(source['usuarios'])
+    users_test = users_test.drop("usuario", 1)
+    #users_test = users_test.values
+
+    x_train, x_test, y_train, y_test = train_test_split(users_train_x, users_train_y, test_size=0.25)
+    print(x_train)
+    print(x_test)
+    print(y_train)
+    print(y_test)
+    regr = MultinomialNB()
+    regr.fit(x_train, y_train)
+    #print(regr.coef_)
+    pred = regr.predict(x_test)
+    xy_test = x_test.copy()
+    xy_test["vulnerable"] = pred.astype(str)
+    #print(pred)
+
+    # scatter plot for train
+    #users_train["vulnerable"] = users_train["vulnerable"].astype(str)
+    #grafico = px.scatter(xy_test, x="emails_phishing_recibidos", y="emails_phishing_clicados", color="vulnerable")
+
+    # scatter plot for predecir
+    pred = regr.predict(users_test)
+    users_test["vulnerable"] = pred.astype(str)
+    grafico = px.scatter(users_test, x="emails_phishing_recibidos", y="emails_phishing_clicados", color="vulnerable")
+
+    a = plotly.utils.PlotlyJSONEncoder
+    graphJSON = json.dumps(grafico, cls=a)
+    return render_template("graph.html", graphJSON=graphJSON)
 
 if __name__ == '__main__':
     setup()
